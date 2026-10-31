@@ -1,0 +1,18 @@
+{
+  "name": "nuvia",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "build:shared": "npm run build -w @nuvia/shared",
+    "build": "npm run build:shared && npm run build -w @nuvia/api && npm run build -w @nuvia/agent && npm run build -w @nuvia/web",
+    "test": "npm run build:shared && npm test -w @nuvia/shared && npm test -w @nuvia/api && npm test -w @nuvia/agent",
+    "db:up": "docker compose up -d db",
+    "migrate": "npm run migrate -w @nuvia/api",
+    "seed": "npm run seed -w @nuvia/api",
+    "dev:api": "npm run start:dev -w @nuvia/api",
+    "dev:web": "npm run dev -w @nuvia/web",
+    "dev:agent": "npm run dev -w @nuvia/agent"
+  },
+  "engines": { "node": ">=22" }
+}

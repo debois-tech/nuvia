@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<title>Are you there?</title>
+<style>
+  body { font: 15px system-ui, sans-serif; margin: 0; padding: 22px; overflow: hidden; color: #111; background: #fff; }
+  h1 { font-size: 18px; margin: 0 0 8px; }
+  p { margin: 0 0 14px; color: #444; line-height: 1.4; }
+  .code { font: 600 28px ui-monospace, monospace; letter-spacing: .25em; margin: 4px 0 12px; }
+  input { font: inherit; padding: 8px 10px; width: 8em; border: 1px solid #bbb; border-radius: 8px; }
+  button { font: inherit; padding: 9px 18px; border: 0; border-radius: 999px; background: #111; color: #fff; cursor: pointer; }
+  button:disabled { opacity: .5; }
+  .err { color: #b3261e; min-height: 1.3em; margin-top: 10px; }
+  .time { color: #666; font-size: 13px; margin-top: 10px; }
+</style>
+</head>
+<body>
+  <h1 id="title">Are you still working?</h1>
+  <p id="body"></p>
+  <div id="codeBox" hidden><div class="code" id="code"></div><input id="answer" inputmode="numeric" autocomplete="off" maxlength="8" aria-label="Type the code"> </div>
+  <button id="go">I'm here</button>
+  <div class="err" id="err" role="alert"></div>
+  <div class="time" id="time"></div>
+<script>
+  let prompt;
+  const $ = (id) => document.getElementById(id);
+  window.nuvia.onPrompt((p) => {
+    prompt = p;
+    if (p.kind === 'challenge') {
+      $('title').textContent = 'Quick presence check';
+      $('body').textContent = 'Type the code below to confirm you are at your computer.';
+      $('code').textContent = p.code;
+      $('codeBox').hidden = false;
+      $('go').textContent = 'Confirm';
+      $('answer').focus();
+    } else {
+      $('body').textContent = 'There has been no keyboard or mouse activity for a while. Click to confirm you are here, or you will be marked away and your manager will be told.';
+    }
+    tick();
+    setInterval(tick, 1000);
+  });
+  function tick() {
+    const s = Math.max(0, Math.round((new Date(prompt.deadlineAt) - Date.now()) / 1000));
+    $('time').textContent = s > 0 ? `Time left: ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : 'Time is up.';
+  }
+  // Only a real click or Enter key counts, not a script dispatching synthetic events into the page.
+  async function submit(ev) {
+    if (!ev.isTrusted) return;
+    $('go').disabled = true;
+    const err = await window.nuvia.answer(prompt.id, prompt.kind === 'challenge' ? $('answer').value : undefined);
+    $('err').textContent = err || '';
+    $('go').disabled = false;
+    if (err) $('answer').select();
+  }
+  $('go').addEventListener('click', submit);
+  $('answer').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(e); });
+</script>
+</body>
+</html>
