@@ -1,6 +1,7 @@
 'use client';
 import { DragEvent, useRef, useState } from 'react';
-import { ExecOnly, LeadershipNav } from '@/components/leadership/Parts';
+import { ExecOnly } from '@/components/leadership/Parts';
+import { PageHeader } from '@/components/ui';
 import { Shell } from '@/components/Shell';
 import { fmtDateTime, HttpError, uploadRaw, useApi } from '@/lib/api';
 import { ImportPreview, ImportRecord, ImportResult } from '@/lib/types';
@@ -154,8 +155,7 @@ export default function ImportPage() {
     <Shell>
       {(me) => (
         <ExecOnly me={me}>
-          <h1>Import sheet</h1>
-          <LeadershipNav />
+          <PageHeader title="Import sheet" />
           <Importer />
         </ExecOnly>
       )}

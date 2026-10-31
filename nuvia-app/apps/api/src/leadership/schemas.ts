@@ -19,7 +19,8 @@ export const MappingSchema = z
   .object(Object.fromEntries(FIELDS.map((f) => [f, z.number().int().min(0).max(99).optional()])) as Record<(typeof FIELDS)[number], z.ZodOptional<z.ZodNumber>>)
   .strict();
 
-export const FinanceQuery = z.object({ from: month.optional(), to: month.optional() });
+export const FinanceQuery = z.object({ from: month.optional(), to: month.optional(), compareFrom: month.optional(), compareTo: month.optional(), compare: z.enum(['prev', 'yoy']).optional() });
+export const OverviewQuery = FinanceQuery;
 
 export const CreateGoalBody = z
   .object({

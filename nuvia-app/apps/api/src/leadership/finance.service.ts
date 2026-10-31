@@ -30,6 +30,24 @@ function addMonths(period: string, n: number): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`;
 }
 
+const sumOf = sum;
+
+/** Totals for a set of company months, the same way for the main range and the compared one. */
+function totalsOf(inRange: MonthTotals[]) {
+  const pairs = inRange.filter((m) => m.revenue !== null && m.target !== null);
+  const mp = inRange.filter((m) => m.revenue !== null && m.cost !== null);
+  const targetPairs = sumOf(pairs.map((m) => m.target));
+  return {
+    revenue: sumOf(inRange.map((m) => m.revenue)),
+    target: sumOf(inRange.map((m) => m.target)),
+    attainmentPct: targetPairs ? pct(sumOf(pairs.map((m) => m.revenue)) ?? 0, targetPairs) : null,
+    cost: sumOf(inRange.map((m) => m.cost)),
+    marginPct: mp.length && sumOf(mp.map((m) => m.revenue)) ? pct((sumOf(mp.map((m) => m.revenue)) ?? 0) - (sumOf(mp.map((m) => m.cost)) ?? 0), sumOf(mp.map((m) => m.revenue))!) : null,
+    cashIn: sumOf(inRange.map((m) => m.cashIn)),
+    cashOut: sumOf(inRange.map((m) => m.cashOut)),
+  };
+}
+
 @Injectable()
 export class FinanceService {
   constructor(
@@ -171,6 +189,34 @@ export class FinanceService {
     return rows;
   }
 
+  /** The months a page is about: what was asked for, else this fiscal year up to the latest month with revenue (or today). */
+  async resolveRange(f: { from?: string; to?: string }): Promise<{ from: string; to: string }> {
+    const start = this.cfg.fiscalYearStartMonth;
+    const all = await this.health.companyMonths();
+    const withRevenue = all.filter((m) => m.revenue !== null);
+    const asOf = withRevenue.length ? withRevenue[withRevenue.length - 1].period : `${this.health.today().slice(0, 7)}-01`;
+    const toP = f.to ? `${f.to}-01` : asOf;
+    const fromP = f.from ? `${f.from}-01` : `${fiscalYearStart(toP, start)}-${String(start).padStart(2, '0')}-01`;
+    if (fromP > toP) throw new BadRequestException('"from" must not be after "to"');
+    return { from: fromP.slice(0, 7), to: toP.slice(0, 7) };
+  }
+
+  /**
+   * The months to compare with: an explicit range, or "prev" (the same number of months right before) or
+   * "yoy" (the same months a year earlier). Null when no comparison was asked for.
+   */
+  compareRange(range: { from: string; to: string }, q: { compare?: 'prev' | 'yoy'; compareFrom?: string; compareTo?: string }): { from: string; to: string } | null {
+    if (q.compareFrom && q.compareTo) {
+      if (q.compareFrom > q.compareTo) throw new BadRequestException('"compareFrom" must not be after "compareTo"');
+      return { from: q.compareFrom, to: q.compareTo };
+    }
+    if (!q.compare) return null;
+    const idx = (ym: string) => +ym.slice(0, 4) * 12 + (+ym.slice(5, 7) - 1);
+    const ym = (i: number) => `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`;
+    const shift = q.compare === 'yoy' ? 12 : idx(range.to) - idx(range.from) + 1;
+    return { from: ym(idx(range.from) - shift), to: ym(idx(range.to) - shift) };
+  }
+
   /** Everything the revenue dashboard draws, for one range of months (default: this fiscal year so far). */
   async dashboard(f: FinanceQ) {
     const start = this.cfg.fiscalYearStartMonth;
@@ -183,7 +229,7 @@ export class FinanceService {
       asOf: asOf?.slice(0, 7) ?? null,
       available: all.length ? { from: all[0].period.slice(0, 7), to: all[all.length - 1].period.slice(0, 7) } : null,
     };
-    if (!all.length) return { ...base, range: null, months: [], quarters: [], departments: [], totals: null, fiscalYear: null };
+    if (!all.length) return { ...base, range: null, months: [], quarters: [], departments: [], totals: null, fiscalYear: null, compare: null };
 
     const last = all[all.length - 1].period;
     const toP = f.to ? `${f.to}-01` : asOf ?? last;
@@ -242,18 +288,15 @@ export class FinanceService {
       attainmentPct: d.cmpTarget ? pct(d.cmpRevenue ?? 0, d.cmpTarget) : null,
     }));
 
-    const pairs = inRange.filter((m) => m.revenue !== null && m.target !== null);
-    const mp = inRange.filter((m) => m.revenue !== null && m.cost !== null);
-    const rev = sum(inRange.map((m) => m.revenue));
-    const totals = {
-      revenue: rev,
-      target: sum(inRange.map((m) => m.target)),
-      attainmentPct: sum(pairs.map((m) => m.target)) ? pct(sum(pairs.map((m) => m.revenue)) ?? 0, sum(pairs.map((m) => m.target))!) : null,
-      cost: sum(inRange.map((m) => m.cost)),
-      marginPct: mp.length && sum(mp.map((m) => m.revenue)) ? pct((sum(mp.map((m) => m.revenue)) ?? 0) - (sum(mp.map((m) => m.cost)) ?? 0), sum(mp.map((m) => m.revenue))!) : null,
-      cashIn: sum(inRange.map((m) => m.cashIn)),
-      cashOut: sum(inRange.map((m) => m.cashOut)),
-    };
+    const totals = totalsOf(inRange);
+    let compare: { range: { from: string; to: string }; totals: ReturnType<typeof totalsOf>; departments: { department: string; revenue: number | null }[] } | null = null;
+    const cr = this.compareRange({ from: fromP.slice(0, 7), to: toP.slice(0, 7) }, f);
+    if (cr) {
+      const cf = `${cr.from}-01`;
+      const ct = `${cr.to}-01`;
+      const cdeps = (await this.db.query('SELECT department, sum(revenue)::float8 AS revenue FROM finance_rows WHERE period >= $1 AND period <= $2 GROUP BY department', [cf, ct])).rows;
+      compare = { range: cr, totals: totalsOf(all.filter((m) => m.period >= cf && m.period <= ct)), departments: cdeps };
+    }
     return {
       ...base,
       range: { from: fromP.slice(0, 7), to: toP.slice(0, 7) },
@@ -262,6 +305,7 @@ export class FinanceService {
       quarters,
       departments,
       totals,
+      compare,
     };
   }
 }

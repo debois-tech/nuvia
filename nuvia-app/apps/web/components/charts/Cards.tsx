@@ -1,43 +1,16 @@
 'use client';
-import { ReactNode, useId, useState } from 'react';
+import { ReactNode } from 'react';
+import { DataCard, TableData } from '../ui';
 import { EChart } from './EChart';
 import { gaugeOption, sparkOption } from './options';
 import { HEALTH, INK } from './theme';
 import type { MeasureStatus } from '@/lib/types';
 
-export interface TableData {
-  head: string[];
-  rows: (string | number)[][];
-}
+export type { TableData } from '../ui';
 
-/** A chart card: title, optional note, a Chart/Table switch, and the chart. The table holds the exact numbers. */
+/** A chart card: title, optional note, and a "..." menu that switches to a table with the exact numbers. */
 export function ChartCard({ title, note, table, children, wide }: { title: string; note?: string; table: TableData; children: ReactNode; wide?: boolean }) {
-  const [view, setView] = useState<'chart' | 'table'>('chart');
-  const id = useId();
-  return (
-    <section className={`card vcard ${wide ? 'wide' : ''}`} aria-labelledby={id}>
-      <div className="row spread" style={{ alignItems: 'start' }}>
-        <div>
-          <h2 id={id} style={{ marginBottom: 2 }}>{title}</h2>
-          {note && <div className="muted" style={{ fontSize: 13 }}>{note}</div>}
-        </div>
-        <div className="seg" role="group" aria-label={`${title} view`}>
-          <button type="button" aria-pressed={view === 'chart'} onClick={() => setView('chart')}>Chart</button>
-          <button type="button" aria-pressed={view === 'table'} onClick={() => setView('table')}>Table</button>
-        </div>
-      </div>
-      <div style={{ marginTop: 10 }}>
-        {view === 'chart' ? children : (
-          <div className="scroll">
-            <table>
-              <thead><tr>{table.head.map((h, i) => <th key={i} style={i ? { textAlign: 'right' } : undefined}>{h}</th>)}</tr></thead>
-              <tbody>{table.rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j} style={j ? { textAlign: 'right', fontVariantNumeric: 'tabular-nums' } : undefined}>{c}</td>)}</tr>)}</tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </section>
-  );
+  return <DataCard title={title} sub={note} table={table} className={wide ? 'wide' : ''}>{children}</DataCard>;
 }
 
 /** A legend: a swatch, the name, and the figure beside it. Text stays in text colours; only the swatch carries identity. */

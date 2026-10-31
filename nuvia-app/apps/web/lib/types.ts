@@ -92,7 +92,14 @@ export interface Health {
 export interface AlertItem { key: string; kind: string; severity: 'warning' | 'critical'; title: string; detail: string; link: string; raisedAt: string }
 export interface GoalSummary { active: number; onTrack: number; atRisk: number; offTrack: number; done: number }
 export interface ImportRecord { id: string; fileName: string; sheetName: string | null; rowCount: number; periodFrom: string; periodTo: string; warnings: string[]; uploadedAt: string; uploadedBy: string }
-export interface Overview { health: Health; alerts: AlertItem[]; goals: GoalSummary; latestImport: ImportRecord | null }
+export interface Funnel { created: number; assigned: number; started: number; inReview: number; done: number }
+export interface WeekdayCounts { byWeekday: number[]; total: number }
+export interface ActivityBlock {
+  range: { from: string; to: string }; compareRange: { from: string; to: string } | null;
+  tasks: Funnel; completed: WeekdayCounts; checkIns: WeekdayCounts;
+  compare: { tasks: Funnel; completed: WeekdayCounts; checkIns: WeekdayCounts } | null;
+}
+export interface Overview { health: Health; alerts: AlertItem[]; goals: GoalSummary; latestImport: ImportRecord | null; activity: ActivityBlock }
 
 export interface FinanceMonth { period: string; label: string; revenue: number | null; target: number | null; cost: number | null; cashIn: number | null; cashOut: number | null; closingCash: number | null; attainmentPct: number | null }
 export interface FinanceQuarter { label: string; from: string; to: string; months: number; complete: boolean; revenue: number | null; target: number | null; cost: number | null; attainmentPct: number | null }
@@ -102,6 +109,7 @@ export interface FinanceDashboard {
   currency: string; fiscalYearStartMonth: number; asOf: string | null; available: { from: string; to: string } | null;
   range: { from: string; to: string } | null; fiscalYear: string | null;
   months: FinanceMonth[]; quarters: FinanceQuarter[]; departments: FinanceDepartment[]; totals: FinanceTotals | null;
+  compare: null | { range: { from: string; to: string }; totals: FinanceTotals; departments: { department: string; revenue: number | null }[] };
 }
 
 export type MilestoneState = 'done' | 'overdue' | 'at_risk' | 'on_track';

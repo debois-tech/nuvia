@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ActivityService } from './activity.service';
 import { AlertsService } from './alerts.service';
 import { FinanceService } from './finance.service';
 import { GoalsService } from './goals.service';
@@ -7,6 +8,6 @@ import { LeadershipController } from './leadership.controller';
 
 @Module({
   controllers: [LeadershipController],
-  providers: [HealthService, AlertsService, FinanceService, GoalsService],
+  providers: [HealthService, AlertsService, FinanceService, GoalsService, ActivityService],
 })
 export class LeadershipModule {}

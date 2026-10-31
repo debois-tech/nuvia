@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 import { GoalBadge, Progress } from '@/components/leadership/GoalBits';
 import { GoalTimeline } from '@/components/leadership/GoalTimeline';
-import { ExecOnly, LeadershipNav } from '@/components/leadership/Parts';
+import { ExecOnly } from '@/components/leadership/Parts';
+import { PageHeader } from '@/components/ui';
 import { Shell } from '@/components/Shell';
 import { api, fmtDate, useApi } from '@/lib/api';
 import { Goal, GoalList, Person } from '@/lib/types';
@@ -88,8 +89,7 @@ export default function GoalsPage() {
     <Shell>
       {(me) => (
         <ExecOnly me={me}>
-          <h1>Goals and timeline</h1>
-          <LeadershipNav />
+          <PageHeader title="Goals and timeline" />
           <Goals />
         </ExecOnly>
       )}

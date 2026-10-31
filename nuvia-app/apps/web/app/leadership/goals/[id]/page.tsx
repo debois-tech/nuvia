@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 import { GoalBadge, Progress } from '@/components/leadership/GoalBits';
-import { ExecOnly, LeadershipNav } from '@/components/leadership/Parts';
+import { ExecOnly } from '@/components/leadership/Parts';
 import { Shell } from '@/components/Shell';
 import { api, fmtDate, useApi } from '@/lib/api';
 import { GoalDetail, GoalLink, Milestone, Person, ProjectSummary, STATUS_LABEL, TaskRow } from '@/lib/types';
@@ -202,7 +202,6 @@ export default function GoalPage() {
     <Shell>
       {(me) => (
         <ExecOnly me={me}>
-          <LeadershipNav />
           <Detail id={id} />
         </ExecOnly>
       )}

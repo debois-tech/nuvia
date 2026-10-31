@@ -4,12 +4,13 @@ import { AuthedRequest, Roles } from '../auth/roles';
 import { readRawBody } from '../common/body';
 import { parse } from '../common/zod';
 import { APP_CONFIG, AppConfig } from '../config/config';
+import { ActivityService } from './activity.service';
 import { AlertsService } from './alerts.service';
 import { FinanceService } from './finance.service';
 import { GoalsService } from './goals.service';
 import { HealthRulesSchema } from './health';
 import { HealthService } from './health.service';
-import { CreateGoalBody, CreateMilestoneBody, FinanceQuery, ImportQuery, LinkBody, UpdateGoalBody, UpdateMilestoneBody } from './schemas';
+import { CreateGoalBody, CreateMilestoneBody, FinanceQuery, ImportQuery, LinkBody, OverviewQuery, UpdateGoalBody, UpdateMilestoneBody } from './schemas';
 
 /**
  * Everything under /leadership is for executives (CEO, CTO, COO) only. The role is checked here on the server;
@@ -23,15 +24,28 @@ export class LeadershipController {
     private readonly health: HealthService,
     private readonly goals: GoalsService,
     private readonly alerts: AlertsService,
+    private readonly activity: ActivityService,
     @Inject(APP_CONFIG) private readonly cfg: AppConfig,
   ) {}
 
-  /** The leadership home page in one call: the verdict, what is off track, and a goals summary. */
+  /**
+   * The leadership home page in one call: the verdict, what is off track, a goals summary, and the work done in the
+   * chosen months (default: this fiscal year so far) next to an optional comparison range.
+   */
   @Get('overview')
-  async overview() {
+  async overview(@Query() query: unknown) {
+    const q = parse(OverviewQuery, query);
     const alerts = await this.alerts.sync();
-    const [health, goals, imports] = await Promise.all([this.health.evaluate(), this.goals.list(), this.finance.imports()]);
-    return { health, alerts, goals: goals.summary, latestImport: imports[0] ?? null };
+    const range = await this.finance.resolveRange(q);
+    const compareRange = this.finance.compareRange(range, q);
+    const [health, goals, imports, now, before] = await Promise.all([
+      this.health.evaluate(),
+      this.goals.list(),
+      this.finance.imports(),
+      this.activity.forRange(range),
+      compareRange ? this.activity.forRange(compareRange) : null,
+    ]);
+    return { health, alerts, goals: goals.summary, latestImport: imports[0] ?? null, activity: { range, compareRange, ...now, compare: before } };
   }
 
   @Get('alerts')

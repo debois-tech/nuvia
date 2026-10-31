@@ -2,7 +2,8 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { StatusBadge } from '@/components/charts/Cards';
 import { HEALTH } from '@/components/charts/theme';
-import { ExecOnly, LeadershipNav } from '@/components/leadership/Parts';
+import { ExecOnly } from '@/components/leadership/Parts';
+import { PageHeader } from '@/components/ui';
 import { Shell } from '@/components/Shell';
 import { api, fmtDateTime, useApi } from '@/lib/api';
 import { Health, HealthRules } from '@/lib/types';
@@ -94,8 +95,7 @@ export default function HealthPage() {
     <Shell>
       {(me) => (
         <ExecOnly me={me}>
-          <h1>Health rules</h1>
-          <LeadershipNav />
+          <PageHeader title="Health rules" />
           <Rules />
         </ExecOnly>
       )}

@@ -1,11 +1,13 @@
 'use client';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { ChartCard, KeyRow, Legend, StatTile } from '@/components/charts/Cards';
 import { EChart } from '@/components/charts/EChart';
 import { barOption, colorFor, donutOption, lineOption, Slice } from '@/components/charts/options';
 import { BLUE, OTHER, REFERENCE, SERIES, STATUS, money, pctText } from '@/components/charts/theme';
-import { ExecOnly, LeadershipNav } from '@/components/leadership/Parts';
+import { ExecOnly } from '@/components/leadership/Parts';
+import { RangeBar, rangeQuery, useRangeState } from '@/components/leadership/RangeBar';
+import { PageHeader } from '@/components/ui';
 import { Shell } from '@/components/Shell';
 import { useApi } from '@/lib/api';
 import { FinanceDashboard } from '@/lib/types';
@@ -16,11 +18,9 @@ const addMonths = (ym: string, n: number) => {
 };
 
 function Dashboard() {
-  const [range, setRange] = useState<{ from?: string; to?: string; preset: string }>({ preset: 'fy' });
-  const qs = new URLSearchParams();
-  if (range.from) qs.set('from', range.from);
-  if (range.to) qs.set('to', range.to);
-  const { data: d, error, loading } = useApi<FinanceDashboard>(`leadership/finance${qs.size ? `?${qs}` : ''}`);
+  const [range, setRange] = useRangeState();
+  const qs = rangeQuery(range);
+  const { data: d, error, loading } = useApi<FinanceDashboard>(`leadership/finance${qs ? `?${qs}` : ''}`);
   const cur = d?.currency ?? 'INR';
   const full = (n: number) => money(n, cur);
   const short = (n: number) => money(n, cur, true);
@@ -38,28 +38,14 @@ function Dashboard() {
     return { labels, slices, total: slices.reduce((s, x) => s + x.value, 0) };
   }, [d]);
 
-  const presets = d?.available && d.asOf ? [
-    { id: 'fy', label: 'This fiscal year', from: undefined, to: undefined },
-    { id: '6m', label: 'Last 6 months', from: addMonths(d.asOf, -5), to: d.asOf },
-    { id: 'all', label: 'All data', from: d.available.from, to: d.available.to },
-  ] : [];
-
   return (
     <>
-      <div className="filters" role="group" aria-label="Date range">
-        <div className="seg">
-          {presets.map((p) => (
-            <button key={p.id} type="button" aria-pressed={range.preset === p.id} onClick={() => setRange({ from: p.from, to: p.to, preset: p.id })}>{p.label}</button>
-          ))}
-        </div>
-        {d?.range && (
-          <>
-            <div><label htmlFor="f-from">From</label><input id="f-from" type="month" value={d.range.from} min={d.available?.from} max={d.available?.to} onChange={(e) => e.target.value && setRange({ from: e.target.value, to: d.range!.to, preset: 'custom' })} /></div>
-            <div><label htmlFor="f-to">To</label><input id="f-to" type="month" value={d.range.to} min={d.available?.from} max={d.available?.to} onChange={(e) => e.target.value && setRange({ from: d.range!.from, to: e.target.value, preset: 'custom' })} /></div>
-          </>
-        )}
-        <span className="muted" style={{ fontSize: 13, alignSelf: 'center' }}>{d?.fiscalYear && `Fiscal year ${d.fiscalYear} (starts month ${d.fiscalYearStartMonth})`}</span>
-      </div>
+      <PageHeader title="Revenue">
+        <RangeBar state={range} onChange={setRange} range={d?.range ?? null} compareRange={d?.compare?.range ?? null} asOf={d?.asOf ?? null} available={d?.available ?? null}>
+          <Link href="/leadership/import" className="greybtn" style={{ textDecoration: 'none' }}>Import sheet</Link>
+          <Link href="/leadership/health" className="greybtn" style={{ textDecoration: 'none' }}>Health rules</Link>
+        </RangeBar>
+      </PageHeader>
       {error && <p className="err" role="alert">{error}</p>}
       {d && !d.totals && (
         <section className="card"><p>No figures yet. <Link href="/leadership/import">Upload a sheet</Link> to see revenue, trends and the department split.</p></section>
@@ -67,7 +53,7 @@ function Dashboard() {
       {d && d.totals && view && (
         <div style={{ opacity: loading ? 0.6 : 1, transition: 'opacity .15s' }}>
           <div className="stats">
-            <StatTile hero label="Revenue" value={short(d.totals.revenue ?? 0)} sub={`${d.range!.from} to ${d.range!.to}`} spark={d.months.map((m) => m.revenue)} sparkColor={BLUE} />
+            <StatTile hero label="Revenue" value={short(d.totals.revenue ?? 0)} sub={d.compare && d.compare.totals.revenue ? `${Math.round(((d.totals.revenue ?? 0) - d.compare.totals.revenue) / d.compare.totals.revenue * 1000) / 10}% vs ${short(d.compare.totals.revenue)} before` : `${d.range!.from} to ${d.range!.to}`} spark={d.months.map((m) => m.revenue)} sparkColor={BLUE} />
             <StatTile label="Against target" value={pctText(d.totals.attainmentPct)} sub={d.totals.target !== null ? `Target ${short(d.totals.target)}` : 'No target in this range'} subTone={d.totals.attainmentPct === null ? 'muted' : d.totals.attainmentPct >= 95 ? 'good' : d.totals.attainmentPct < 80 ? 'bad' : 'muted'} />
             <StatTile label="Margin" value={pctText(d.totals.marginPct)} sub={d.totals.cost !== null ? `Cost ${short(d.totals.cost)}` : 'No cost in this range'} />
             <StatTile label="Net cash" value={d.totals.cashIn !== null && d.totals.cashOut !== null ? short(d.totals.cashIn - d.totals.cashOut) : '–'} sub={d.totals.cashIn !== null ? `In ${short(d.totals.cashIn)} · out ${short(d.totals.cashOut ?? 0)}` : 'No cash figures'} subTone={d.totals.cashIn !== null && d.totals.cashOut !== null && d.totals.cashIn < d.totals.cashOut ? 'bad' : 'muted'} />
@@ -143,8 +129,6 @@ export default function RevenuePage() {
     <Shell>
       {(me) => (
         <ExecOnly me={me}>
-          <h1>Revenue</h1>
-          <LeadershipNav />
           <Dashboard />
         </ExecOnly>
       )}

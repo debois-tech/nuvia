@@ -420,6 +420,73 @@ describe('leadership view', () => {
     });
   });
 
+  describe('activity and comparison', () => {
+    it('counts the task funnel so each step is no bigger than the one before, and tasks done by weekday', async () => {
+      const project = (await h.as(t.LEAD).post('/projects', { key: 'web', name: 'Website' }).expect(201)).body.id;
+      await h.as(t.LEAD).post(`/projects/${project}/members`, { userId: ids.ANN }).expect(201);
+      const mk = async (over: Record<string, unknown> = {}) => (await h.as(t.LEAD).post('/tasks', { projectId: project, title: 'x', ...over }).expect(201)).body.id as string;
+      await mk(); // unassigned, to do
+      await mk({ assigneeId: ids.ANN }); // assigned
+      const started = await mk({ assigneeId: ids.ANN });
+      const review = await mk({ assigneeId: ids.ANN });
+      const done = await mk({ assigneeId: ids.ANN });
+      await h.as(t.LEAD).patch(`/tasks/${started}`, { status: 'in_progress' }).expect(200);
+      await h.as(t.LEAD).patch(`/tasks/${review}`, { status: 'in_review' }).expect(200);
+      await h.as(t.LEAD).patch(`/tasks/${done}`, { status: 'done' }).expect(200); // Monday 2026-03-02
+      h.clock.advance(DAY);
+      const done2 = await mk({ assigneeId: ids.ANN });
+      await h.as(t.LEAD).patch(`/tasks/${done2}`, { status: 'done' }).expect(200); // Tuesday
+      // Check-ins: office on Monday, Monday and Tuesday; remote on Tuesday for someone who also has an office row that day.
+      await h.db.query(`INSERT INTO office_attendance (user_id, work_date, check_in_at) VALUES ($1,'2026-03-02',now()), ($2,'2026-03-02',now()), ($1,'2026-03-03',now())`, [ids.ANN, ids.LEAD]);
+
+      const o = (await h.as(t.EXEC).get('/leadership/overview').expect(200)).body.activity;
+      expect(o.range).toEqual({ from: '2025-04', to: '2026-03' });
+      expect(o.tasks).toEqual({ created: 6, assigned: 5, started: 4, inReview: 3, done: 2 });
+      expect(o.completed.byWeekday).toEqual([1, 1, 0, 0, 0, 0, 0]);
+      expect(o.completed.total).toBe(2);
+      expect(o.checkIns.byWeekday).toEqual([2, 1, 0, 0, 0, 0, 0]);
+      expect(o.compare).toBeNull();
+      expect(o.compareRange).toBeNull();
+    });
+
+    it('scopes the activity to the months asked for and reports the comparison range next to it', async () => {
+      const project = (await h.as(t.LEAD).post('/projects', { key: 'web', name: 'Website' }).expect(201)).body.id;
+      await h.as(t.LEAD).post('/tasks', { projectId: project, title: 'march' }).expect(201);
+      const q = (r: string) => h.as(t.EXEC).get(`/leadership/overview?${r}`).expect(200).then((x) => x.body.activity);
+      const march = await q('from=2026-03&to=2026-03&compareFrom=2026-02&compareTo=2026-02');
+      expect(march.tasks.created).toBe(1);
+      expect(march.compareRange).toEqual({ from: '2026-02', to: '2026-02' });
+      expect(march.compare.tasks.created).toBe(0);
+      expect((await q('from=2026-01&to=2026-02')).tasks.created).toBe(0);
+      await h.as(t.EXEC).get('/leadership/overview?from=2026-03&to=2026-01').expect(400);
+    });
+
+    it('leaves archived projects out of the funnel', async () => {
+      const project = (await h.as(t.LEAD).post('/projects', { key: 'old', name: 'Old' }).expect(201)).body.id;
+      await h.as(t.LEAD).post('/tasks', { projectId: project, title: 'x' }).expect(201);
+      await h.as(t.LEAD).patch(`/projects/${project}`, { archived: true }).expect(200);
+      expect((await h.as(t.EXEC).get('/leadership/overview').expect(200)).body.activity.tasks.created).toBe(0);
+    });
+
+    it('adds the compared range to the revenue dashboard', async () => {
+      await importSheet();
+      const d = (await h.as(t.EXEC).get('/leadership/finance?from=2026-03&to=2026-03&compareFrom=2026-02&compareTo=2026-02').expect(200)).body;
+      expect(d.totals.revenue).toBe(600);
+      expect(d.compare).toMatchObject({ range: { from: '2026-02', to: '2026-02' }, totals: { revenue: 800, target: 1000 } });
+      expect(d.compare.departments.map((x: any) => [x.department, x.revenue]).sort()).toEqual([['Ops', 300], ['Sales', 500]]);
+      expect((await h.as(t.EXEC).get('/leadership/finance').expect(200)).body.compare).toBeNull();
+      await h.as(t.EXEC).get('/leadership/finance?compareFrom=2026-03&compareTo=2026-01').expect(400);
+      // "Previous period" is the same number of months right before; "same period last year" is 12 months back.
+      const prev = (await h.as(t.EXEC).get('/leadership/finance?from=2026-02&to=2026-03&compare=prev').expect(200)).body.compare;
+      expect(prev.range).toEqual({ from: '2025-12', to: '2026-01' });
+      expect(prev.totals.revenue).toBe(1000);
+      expect((await h.as(t.EXEC).get('/leadership/finance?from=2026-02&to=2026-03&compare=yoy').expect(200)).body.compare.range).toEqual({ from: '2025-02', to: '2025-03' });
+      const ov = (await h.as(t.EXEC).get('/leadership/overview?from=2026-03&to=2026-03&compare=prev').expect(200)).body.activity;
+      expect(ov.compareRange).toEqual({ from: '2026-02', to: '2026-02' });
+      await h.as(t.EXEC).get('/leadership/finance?compare=weekly').expect(400);
+    });
+  });
+
   describe('overview', () => {
     it('gives the home page its verdict, alerts, goal summary and latest import in one call', async () => {
       await importSheet();

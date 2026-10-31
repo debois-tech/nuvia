@@ -29,7 +29,7 @@ export function ExecOnly({ me, children }: { me: Me; children: ReactNode }) {
   if (!isExecutive(me.role)) {
     return (
       <>
-        <h1>Leadership</h1>
+        <div className="pagehead"><h1>Leadership</h1></div>
         <section className="card"><p>The leadership view is for the CEO, CTO and COO.</p></section>
       </>
     );
