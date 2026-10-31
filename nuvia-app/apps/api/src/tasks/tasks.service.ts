@@ -6,6 +6,7 @@ import { Clock } from '../common/clock';
 import { DbService, Q } from '../common/db.service';
 import { workDateOf } from '../common/tz';
 import { APP_CONFIG, AppConfig } from '../config/config';
+import { linkedGoals } from '../leadership/goal-queries';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ProjectAccess, TaskAccess } from './access.service';
 import { CommentBody, CreateTaskBody, ListTasksQuery, STATUS_LABEL, TaskStatus, UpdateTaskBody } from './schemas';
@@ -149,6 +150,7 @@ export class TasksService {
       comments: comments.rows,
       attachments: attachments.rows.map((x) => ({ ...x, canRemove: !access.archived && (access.manage || x.uploaderId === user.id) })),
       activity: activity.rows,
+      goals: await linkedGoals(this.db, { projectId: task.projectId, taskId: id }),
       can: {
         edit: access.manage && !access.archived,
         changeStatus: !access.archived && (access.manage || (access.participate && mine)),

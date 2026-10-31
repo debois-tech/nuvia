@@ -16,7 +16,7 @@ export default function Login() {
       body: JSON.stringify({ orgId: f.get('orgId'), password: f.get('password') }),
     });
     if (res.ok) {
-      location.href = '/attendance';
+      location.href = '/'; // the home page sends executives to Leadership and everyone else to Attendance
       return;
     }
     setError((await res.json().catch(() => ({}))).message ?? 'Sign-in failed');

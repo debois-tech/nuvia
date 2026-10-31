@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export class HttpError extends Error {
-  constructor(readonly status: number, message: string) { super(message); }
+  constructor(readonly status: number, message: string, readonly body: any = null) { super(message); }
 }
 
 export async function api<T = unknown>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
@@ -22,6 +22,13 @@ export async function uploadFile<T = unknown>(path: string, file: File): Promise
   return handle<T>(await fetch(`/api/${path}?${qs}`, { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: file, cache: 'no-store' }));
 }
 
+/** Uploads a file as the raw request body with extra query parameters (used by the sheet import). */
+export async function uploadRaw<T = unknown>(path: string, file: File, params: Record<string, string | number | undefined> = {}): Promise<T> {
+  const qs = new URLSearchParams({ name: file.name });
+  for (const [k, v] of Object.entries(params)) if (v !== undefined) qs.set(k, String(v));
+  return handle<T>(await fetch(`/api/${path}?${qs}`, { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: file, cache: 'no-store' }));
+}
+
 async function handle<T>(res: Response): Promise<T> {
   if (res.status === 401 && typeof window !== 'undefined' && !location.pathname.startsWith('/login')) {
     location.href = '/login';
@@ -29,7 +36,10 @@ async function handle<T>(res: Response): Promise<T> {
   }
   const text = await res.text();
   const json = text ? JSON.parse(text) : null;
-  if (!res.ok) throw new HttpError(res.status, typeof json?.message === 'string' ? json.message : `Request failed (${res.status})`);
+  if (!res.ok) {
+    const issues = Array.isArray(json?.issues) && json.issues.length ? `: ${json.issues.map((i: { path?: string; message: string }) => (i.path ? `${i.path} ${i.message}` : i.message)).join('; ')}` : '';
+    throw new HttpError(res.status, typeof json?.message === 'string' ? json.message + issues : `Request failed (${res.status})`, json);
+  }
   return json as T;
 }
 

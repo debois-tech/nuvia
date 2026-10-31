@@ -6,6 +6,7 @@ import { Clock } from './common/clock';
 import { DbService } from './common/db.service';
 import { RandomSource } from './common/random';
 import { APP_CONFIG, AppConfig, loadConfig } from './config/config';
+import { LeadershipModule } from './leadership/leadership.module';
 import { NotificationsController } from './notifications/notifications.controller';
 import { NotificationsService } from './notifications/notifications.service';
 import { TasksModule } from './tasks/tasks.module';
@@ -26,7 +27,7 @@ export class AppModule {
   static register(cfg: AppConfig = loadConfig()): DynamicModule {
     return {
       module: AppModule,
-      imports: [CoreModule.forConfig(cfg), AuthModule, AttendanceModule, TasksModule],
+      imports: [CoreModule.forConfig(cfg), AuthModule, AttendanceModule, TasksModule, LeadershipModule],
       controllers: [NotificationsController],
     };
   }

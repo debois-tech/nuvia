@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, fmtDateTime, useApi } from '@/lib/api';
-import { isReviewer, Me, Notification } from '@/lib/types';
+import { isExecutive, isReviewer, Me, Notification } from '@/lib/types';
 
 function Bell() {
   const { data, reload } = useApi<{ unread: number; items: Notification[] }>('notifications', 30_000);
@@ -33,7 +33,8 @@ function Bell() {
             {data?.items.map((n) => (
               <li key={n.id} className={n.readAt ? '' : 'unread'}>
                 {n.taskId ? <Link href={`/tasks/${n.taskId}`} onClick={() => setOpen(false)}>{n.message}</Link>
-                  : n.flagId ? <Link href={`/attendance/review?flag=${n.flagId}`} onClick={() => setOpen(false)}>{n.message}</Link> : n.message}
+                  : n.flagId ? <Link href={`/attendance/review?flag=${n.flagId}`} onClick={() => setOpen(false)}>{n.message}</Link>
+                  : n.link && /^\/(?!\/)/.test(n.link) ? <Link href={n.link} onClick={() => setOpen(false)}>{n.message}</Link> : n.message}
                 <div className="muted" style={{ fontSize: 12, fontWeight: 400 }}>{fmtDateTime(n.createdAt)}</div>
               </li>
             ))}
@@ -59,6 +60,7 @@ export function Shell({ children }: { children: (me: Me) => React.ReactNode }) {
         <div className="in">
           <b>Nuvia</b>
           <nav aria-label="Main">
+            {isExecutive(me.role) && link('/leadership', 'Leadership', true)}
             {link('/tasks', 'Tasks', true)}
             {link('/projects', 'Projects', true)}
             {link('/attendance', 'Attendance')}
