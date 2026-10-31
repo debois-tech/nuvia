@@ -1,0 +1,81 @@
+# Nuvia: API + Postgres + TLS proxy. Reachable only on the VPN address, never on a public one.
+#
+#   ./scripts/gen-secrets.sh        # once: writes .env with random secrets
+#   docker compose up -d --build
+#   docker compose exec app node dist/cli/create-admin.js --org-id NV-0001 --name "..." --email ...
+
+name: nuvia
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nuvia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-nuvia}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # No "ports:" on purpose. Only the app can reach the database, over the internal network.
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    security_opt: ["no-new-privileges:true"]
+
+  app:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-nuvia}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-nuvia}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?set APP_ENCRYPTION_KEY in .env}
+      APP_ORIGIN: ${APP_ORIGIN:?set APP_ORIGIN in .env}   # exactly what staff type, e.g. https://nuvia.internal
+      BIND_ADDR: 0.0.0.0        # inside the container network only; nothing is published from this service
+      PORT: "3000"
+      TRUST_PROXY: "1"          # one proxy (Caddy) in front, so req.ip is the client's VPN address
+      COOKIE_SECURE: "true"
+    # Apply migrations, then start. Safe to run on every start.
+    command: ["sh", "-c", "node dist/db/migrate.js && node dist/main.js"]
+    # No "ports:" and only the internal network: the app has no route to the internet.
+    networks: [backend]
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      app: { condition: service_healthy }
+    environment:
+      NUVIA_HOSTNAME: ${NUVIA_HOSTNAME:?set NUVIA_HOSTNAME in .env}
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # holds the internal CA; back this up with the database
+    ports:
+      # Bound to the WireGuard address (e.g. 10.8.0.1), not 0.0.0.0. No port 80.
+      - "${VPN_BIND_ADDR:?set VPN_BIND_ADDR in .env}:${HTTPS_PORT:-443}:443"
+    networks: [backend, edge]
+    cap_drop: ["ALL"]
+    cap_add: ["NET_BIND_SERVICE"]
+    security_opt: ["no-new-privileges:true"]
+
+networks:
+  backend:
+    internal: true   # no outbound internet for the database or the app
+  edge: {}
+
+volumes:
+  pgdata:
+  caddy_data:

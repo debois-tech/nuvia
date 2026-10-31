@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+.env
+*.log
+# secrets and generated keys must never be committed
+infra/wireguard/keys/
+infra/wireguard/peers/
+infra/backup/*.key
+infra/backup/*.txt
+backups/
+infra/backup/*.asc
+infra/backup/backup.env

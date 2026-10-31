@@ -1,0 +1,9 @@
+[Unit]
+Description=Nuvia encrypted backup
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/nuvia
+EnvironmentFile=/opt/nuvia/infra/backup/backup.env
+ExecStart=/opt/nuvia/infra/backup/backup.sh

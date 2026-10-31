@@ -1,0 +1,22 @@
+{
+	# Certificates come from Caddy's own internal CA: no public CA and no outbound calls.
+	# Staff devices trust the root once (see docs/deployment.md).
+	auto_https disable_redirects
+	admin off
+}
+
+https://{$NUVIA_HOSTNAME} {
+	tls internal
+
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		Cache-Control "no-store"
+		-Server
+	}
+
+	reverse_proxy app:3000
+}
