@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { FormEvent, useRef, useState } from 'react';
 import { Shell } from '@/components/Shell';
+import { LinkedGoals } from '@/components/leadership/LinkedGoals';
 import { Due, PriorityPill, ref, StatusPill } from '@/components/TaskBits';
 import { api, fmtBytes, fmtDate, fmtDateTime, uploadFile, useApi } from '@/lib/api';
 import { Me, PRIORITIES, PRIORITY_LABEL, ProjectDetail, STATUS_LABEL, STATUSES, TaskDetail, TaskStatus } from '@/lib/types';
@@ -87,6 +88,7 @@ function Body({ id, me }: { id: string; me: Me }) {
       )}
       {t.projectArchived && <p className="muted">This project is archived, so the task is read-only.</p>}
       {err && <p className="err" role="alert">{err}</p>}
+      <LinkedGoals goals={t.goals} />
 
       <div className="twocol">
         <div>

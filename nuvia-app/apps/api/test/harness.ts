@@ -144,7 +144,7 @@ export class Harness {
 
   async reset() {
     await this.db.query(
-      'TRUNCATE audit_log, notifications, task_activity, task_attachments, task_comments, tasks, project_members, projects, review_flags, prompts, heartbeats, activity_periods, remote_sessions, devices, office_attendance, users RESTART IDENTITY CASCADE',
+      'TRUNCATE leadership_alerts, leadership_settings, goal_links, milestones, goals, finance_rows, finance_imports, audit_log, notifications, task_activity, task_attachments, task_comments, tasks, project_members, projects, review_flags, prompts, heartbeats, activity_periods, remote_sessions, devices, office_attendance, users RESTART IDENTITY CASCADE',
     );
     this.clock.set(START);
     this.random.force = null;
@@ -185,6 +185,7 @@ export class Harness {
       get: (p: string) => request(srv).get(p).set(auth),
       post: (p: string, b?: object) => request(srv).post(p).set(auth).send(b ?? {}),
       patch: (p: string, b?: object) => request(srv).patch(p).set(auth).send(b ?? {}),
+      put: (p: string, b?: object) => request(srv).put(p).set(auth).send(b ?? {}),
       delete: (p: string) => request(srv).delete(p).set(auth),
       upload: (p: string, data: Buffer | string, type = 'application/octet-stream') => request(srv).post(p).set(auth).set('content-type', type).send(data),
     };

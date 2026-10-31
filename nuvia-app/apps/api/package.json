@@ -16,6 +16,7 @@
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
     "@nuvia/shared": "*",
+    "fflate": "^0.8.3",
     "ipaddr.js": "^2.2.0",
     "pg": "^8.13.0",
     "reflect-metadata": "^0.2.2",

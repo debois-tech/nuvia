@@ -31,6 +31,12 @@ export interface AppConfig {
   maxUploadBytes: number;
   /** A task is "due soon" when its due date is today or within this many days (in TIMEZONE). */
   dueSoonDays: number;
+  /** Largest sheet accepted by the leadership import. */
+  maxImportBytes: number;
+  /** ISO 4217 code used to display money in the leadership view. The sheets carry plain numbers in this currency. */
+  currency: string;
+  /** 1-12. Quarters and the default dashboard range follow this fiscal year. India's is April (4). */
+  fiscalYearStartMonth: number;
 }
 
 function num(env: NodeJS.ProcessEnv, key: string, def: number): number {
@@ -38,6 +44,13 @@ function num(env: NodeJS.ProcessEnv, key: string, def: number): number {
   if (raw === undefined || raw === '') return def;
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 0) throw new Error(`${key} must be a non-negative number`);
+  return n;
+}
+
+function fiscalStart(raw: string | undefined): number {
+  if (raw === undefined || raw === '') return 4;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > 12) throw new Error('FISCAL_YEAR_START_MONTH must be a whole number from 1 to 12');
   return n;
 }
 
@@ -80,5 +93,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     uploadDir: resolve(env.UPLOAD_DIR || './data/uploads'),
     maxUploadBytes: Math.round(num(env, 'MAX_UPLOAD_MB', 10) * 1024 * 1024),
     dueSoonDays: num(env, 'DUE_SOON_DAYS', 1),
+    maxImportBytes: Math.round(num(env, 'MAX_IMPORT_MB', 5) * 1024 * 1024),
+    currency: (env.CURRENCY || 'INR').toUpperCase(),
+    fiscalYearStartMonth: fiscalStart(env.FISCAL_YEAR_START_MONTH),
   };
 }

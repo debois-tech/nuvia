@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/roles';
 import { Clock } from '../common/clock';
 import { DbService } from '../common/db.service';
+import { linkedGoals } from '../leadership/goal-queries';
 import { TaskAccess } from './access.service';
 import { AddMemberBody, CreateProjectBody, UpdateProjectBody } from './schemas';
 
@@ -49,7 +50,7 @@ export class ProjectsService {
         [id],
       )
     ).rows;
-    return { ...p, members, access: { manage: access.manage, participate: access.participate } };
+    return { ...p, members, goals: await linkedGoals(this.db, { projectId: id }), access: { manage: access.manage, participate: access.participate } };
   }
 
   async update(user: AuthUser, id: string, b: z.output<typeof UpdateProjectBody>) {

@@ -37,7 +37,7 @@ export class NotificationsService {
 
   async list(userId: string, unreadOnly: boolean) {
     const { rows } = await this.db.query(
-      `SELECT id, kind, message, flag_id, task_id, created_at, read_at FROM notifications
+      `SELECT id, kind, message, flag_id, task_id, link, created_at, read_at FROM notifications
        WHERE user_id = $1 ${unreadOnly ? 'AND read_at IS NULL' : ''} ORDER BY created_at DESC LIMIT 100`,
       [userId],
     );

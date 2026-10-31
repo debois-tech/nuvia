@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { FormEvent, useState } from 'react';
+import { LinkedGoals } from '@/components/leadership/LinkedGoals';
 import { Shell } from '@/components/Shell';
 import { api, useApi } from '@/lib/api';
 import { ProjectDetail } from '@/lib/types';
@@ -31,6 +32,7 @@ function Body({ id }: { id: string }) {
       {p.description && <p className="prewrap">{p.description}</p>}
       <p><Link href={`/tasks?project=${p.id}`}>View tasks</Link></p>
       {err && <p className="err" role="alert">{err}</p>}
+      <LinkedGoals goals={p.goals} />
 
       <section className="card" aria-labelledby="mem-h">
         <h2 id="mem-h">Members</h2>
